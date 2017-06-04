@@ -1,0 +1,142 @@
+---
+title: "mtcars"
+author: "Umercia"
+date: "March 25, 2017"
+output:
+  html_document: default
+  htlm_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Executive summary
+
+Having a look at the mtcars data (car database), we are interested to understand what drive the fuel consumption of those cars. We are particulary interested if the transmission (automatic or manual) has an important role.
+A first raw comparison on this parameter seems to show that automatic cars have in general higher fuel consumption. But after a deeper investigation, including other parameters, it is shown that this is more due to the fact that in general, automatic cars are heavier and have more cylinder than manual transmission. At the end, the effect of the transmission "only" is not proven.
+
+## Exploratory data analysis
+The data from "mtcars"" data package was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973-74 models).
+A data frame with 32 observations on 11 variables:  
+- **mpg:	 Miles/(US) gallon**  
+- cyl:	 Number of cylinders  
+- disp: Displacement (cu.in.)  
+- hp:	 Gross horsepower  
+- drat: Rear axle ratio  
+- wt:	 Weight (1000 lbs)  
+- qsec: 1/4 mile time  
+- vs:	 V/S  
+- **am:	 Transmission (0 = automatic, 1 = manual)**  
+- gear: Number of forward gears  
+- carb: Number of carburetors  
+  
+```{r analysis}
+data(mtcars)
+head(mtcars)
+```
+
+
+\pagebreak
+Below a plot of the mpg versus the transmission  
+```{r plot1, echo = FALSE}
+library(ggplot2)
+
+cars <- mtcars
+cars$am <- sub(pattern = "0",replacement = "automatic", cars$am)
+cars$am <- sub(pattern = "1",replacement = "manual", cars$am)
+
+g <- ggplot(data = cars,aes(y=mpg, x=am))
+g+    geom_hline(yintercept = mean(cars[cars$am == "automatic",]$mpg), 
+                 color = "salmon",
+                 size = 3,
+                 alpha = 0.5)+
+      geom_hline(yintercept = mean(cars[cars$am == "manual",]$mpg), 
+                 color = "lightblue",
+                 size = 3,
+                 alpha = 0.5)+
+      geom_point(aes(x = am, y = mpg, color = am), 
+                 alpha = 0.5, 
+                 size = 5)+
+      scale_colour_discrete(name="Transmission")+
+      xlab("Transmission")+
+      guides(color=FALSE)+
+      ylab("Miles/(US) gallon  (mpg)")
+```
+
+In the above graph, the elements are as follows:  
+
+  * salmon line = mean of mpg for the group "automatic"  
+  * light blue line = mean of mpg for the group "manual" 
+  
+At first view, we can see that the group of automatic transmission has lower mpg (higher fuel consumption) than the manual. The question is now: Does the transmission is the reason of higher consumption or is there other(s) reason(s) behind this?   
+
+\pagebreak
+If we add the weight variable to the plot:  
+```{r plot2,echo = FALSE}
+
+g+    geom_hline(yintercept = mean(cars[cars$am == "automatic",]$mpg), 
+                 color = "salmon",
+                 size = 3,
+                 alpha = 0.5)+
+      geom_hline(yintercept = mean(cars[cars$am == "manual",]$mpg), 
+                 color = "lightblue",
+                 size = 3,
+                 alpha = 0.5)+
+      geom_point(aes(x = wt, y = mpg, color = am), 
+                 alpha = 0.5, 
+                 size = 5)+
+      scale_colour_discrete(name="Transmission")+
+      xlab("Weight (wt) [1000 lbs]")+
+      ylab("Miles/(US) gallon  (mpg)")
+```
+
+This last plot offers a new angle of vision:  
+
+* clear relationship in between weight and mpg.  
+* the transmission does not seems to change the relationship weigth / mpg  
+* In general, most of the cars with a weight above 3 (1000 lbs) have automatic transmission, whereas the ones below have a manual transmission.  
+* The transmission groups (salmon vs light blue) have very few overlapping in weight. At this point, it is then difficult to conclude if automatic or manual transmission better for MPG.  
+
+## Model
+Let's try to see wich variables have the most impact on mpg. 
+```{r ggpairs}
+library(GGally)
+ggpairs(data = mtcars)
+
+```
+From the graph above:  
+
+* There is a good correlation of mpg with the following variables: wt, cyl, dips, hp and am.  
+* Some of those variables seems also to be correlated in beetween them.   
+  
+To answer the question of what variable's selection make sense, we will build several models by adding variables one by one. Then we will analyse the variance (anova) to select the best model.
+```{r anova}
+fit1 <- lm(mpg ~ wt, data = mtcars)
+fit2 <- lm(mpg ~ wt+cyl, data = mtcars)
+fit3 <- lm(mpg ~ wt+cyl+am, data = mtcars)
+fit4 <- lm(mpg ~ wt+cyl+am+disp, data = mtcars)
+fit5 <- lm(mpg ~ wt+cyl+am+disp+hp, data = mtcars)
+
+anova(fit1,fit2,fit3,fit4,fit5)
+```
+From the above results:  
+
+* fit1 to fit2 results in significant reduction in Residual Sum of Square (RSS) and better model fits.  
+* Adding the transmission (am) in fit3 does not really reduce the RSS. Therefore, this variable might not be relevant here.
+* The main parameters seems to be the weight (wt) and the number of cylinder (cyl).  
+
+Let's have a look on the residuals:
+```{r residual, fig.height= 4}
+plot(fit2, which=1)
+```
+No special pattern present.
+We can also have a deeper look on the model 3 where we had the transmission variable (am).  
+
+```{r model3}
+summary(fit3)$coef
+```
+From those coefficients: 
+
+* We expect 0.176 increase of average mpg from manual transmission to automatic.  
+* But since the p-value is 0.89 the t-test for $H0: \beta_{am} = 0$ (transmission has no impact on mpg) versus $H_a: \beta_{am} \ne 0$ (transmission has an impact on mpg) is not significant.
