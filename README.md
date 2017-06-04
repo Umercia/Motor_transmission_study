@@ -1,2 +1,5 @@
 # Motor_transmission_study
-Study: transmission (automatic or manual) versus fuel consumtion.
+Study: Impact of transmission (automatic or manual) on car fuel consumtion.
+Data: mtcars (R)
+
+Results: https://umercia.github.io/Motor_transmission_study/Motor_trend.html
